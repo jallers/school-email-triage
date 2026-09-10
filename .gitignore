@@ -1,0 +1,39 @@
+# Secrets, tokens, and local credentials (CRITICAL: NEVER COMMIT)
+.env
+.env.*
+!.env.example
+credentials.json
+credentials*.json
+token.json
+token*.json
+client_secret*.json
+coparent*
+*private*
+
+# Logs and runtime outputs
+*.log
+triage.log
+
+# Python cache & compiled files
+__pycache__/
+*.py[oc]
+*.pyd
+*.pyo
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+
+# Virtual environments & test caches
+.venv/
+env/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
