@@ -12,6 +12,8 @@ from .config import (
     DEFAULT_QUERY,
     DAUGHTER_CURRENT_GRADE,
     SON_CURRENT_GRADE,
+    DAUGHTER_NAME,
+    SON_NAME,
 )
 from .models import EmailTriageResult, ProcessedEmail
 
@@ -126,9 +128,9 @@ class TriagePipeline:
                 # 5. Handle action items -> Google Tasks
                 if triage_res.action_items and self.tasks:
                     tasklist_name = (
-                        f"School - {config.SON_NAME or 'Child 2'}"
+                        f"School - {SON_NAME or 'Child 2'}"
                         if triage_res.target_child == "son"
-                        else f"School - {config.DAUGHTER_NAME or 'Child 1'}"
+                        else f"School - {DAUGHTER_NAME or 'Child 1'}"
                         if triage_res.target_child == "daughter"
                         else "School Tasks"
                     )

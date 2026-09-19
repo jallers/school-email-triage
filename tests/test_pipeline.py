@@ -116,3 +116,43 @@ def test_pipeline_live_run():
     mock_calendar.insert_event.assert_called_once()
     mock_gmail.apply_labels_and_mark_read.assert_called_once()
 
+
+def test_pipeline_tasks_integration():
+    mock_gmail = MagicMock()
+    mock_calendar = MagicMock()
+    mock_extractor = MagicMock()
+    mock_tasks = MagicMock()
+
+    mock_gmail.list_messages.return_value = [{"id": "msg_003", "threadId": "thr_003"}]
+    mock_gmail.get_message.return_value = create_fake_gmail_message(
+        "msg_003",
+        "Permission Slip Reminder",
+        "teacher@schooldistrict.org",
+        "Please sign the permission slip for the upcoming field trip.",
+    )
+
+    mock_extractor.extract_from_email.return_value = EmailTriageResult(
+        target_child="daughter",
+        summary="Permission slip reminder.",
+        action_items=["Sign and return field trip permission slip"],
+        calendar_events=[],
+    )
+
+    pipeline = TriagePipeline(
+        gmail_service=mock_gmail,
+        calendar_service=mock_calendar,
+        extractor=mock_extractor,
+        tasks_service=mock_tasks,
+        dry_run=False,
+    )
+
+    results = pipeline.run(query="from:schooldistrict.org", limit=5)
+
+    assert len(results) == 1
+    mock_tasks.insert_task.assert_called_once()
+    call_kwargs = mock_tasks.insert_task.call_args.kwargs
+    assert call_kwargs["title"] == "Sign and return field trip permission slip"
+    expected_tasklist = f"School - {config.DAUGHTER_NAME or 'Child 1'}"
+    assert call_kwargs["tasklist_name"] == expected_tasklist
+
+

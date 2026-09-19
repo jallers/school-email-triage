@@ -161,9 +161,13 @@ This will:
 ## Step 9: Automatic Background Scheduling
 
 ### Windows (Task Scheduler)
-To run automatically every hour:
+To run automatically every hour in the background (silent headless execution with logs saved to `triage.log`):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scheduling\schedule_windows.ps1 -IntervalMinutes 60
+```
+To view recent background run logs:
+```powershell
+Get-Content .\triage.log -Tail 20
 ```
 
 ### macOS / Linux (Cron)

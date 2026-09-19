@@ -26,8 +26,24 @@ if ($DryRun) {
     $arguments += " --dry-run"
 }
 
-# Define the action
-$action = New-ScheduledTaskAction -Execute $uvPath -Argument $arguments -WorkingDirectory $projectDir
+$logPath = Join-Path $projectDir "triage.log"
+Write-Host "Log Output: $logPath" -ForegroundColor Gray
+
+# Locate conhost.exe for headless background execution without console popups
+$conhostPath = (Get-Command conhost.exe -ErrorAction SilentlyContinue).Source
+if (-not $conhostPath -and (Test-Path "$env:SystemRoot\System32\conhost.exe")) {
+    $conhostPath = "$env:SystemRoot\System32\conhost.exe"
+}
+
+if ($conhostPath) {
+    Write-Host "Execution Mode: Headless background (no terminal window popup)" -ForegroundColor Gray
+    # conhost.exe is a GUI subsystem app; with --headless it launches the command without displaying any window.
+    $cmdArg = "/c `"`"$uvPath`" $arguments >> `"$logPath`" 2>&1`""
+    $action = New-ScheduledTaskAction -Execute $conhostPath -Argument "--headless cmd.exe $cmdArg" -WorkingDirectory $projectDir
+} else {
+    Write-Host "Execution Mode: Standard" -ForegroundColor Gray
+    $action = New-ScheduledTaskAction -Execute $uvPath -Argument $arguments -WorkingDirectory $projectDir
+}
 
 # Define the trigger: starts now, repeats every $IntervalMinutes minutes indefinitely
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
@@ -48,6 +64,7 @@ try {
     Write-Host "Successfully registered Windows Scheduled Task '$TaskName'!" -ForegroundColor Green
     Write-Host "To test run manually: Start-ScheduledTask -TaskName '$TaskName'" -ForegroundColor Cyan
     Write-Host "To view task: Get-ScheduledTask -TaskName '$TaskName'" -ForegroundColor Cyan
+    Write-Host "To view recent logs: Get-Content `"$logPath`" -Tail 20" -ForegroundColor Cyan
     Write-Host "To remove: Unregister-ScheduledTask -TaskName '$TaskName' -Confirm:`$false" -ForegroundColor DarkGray
 } catch {
     Write-Error "Failed to register scheduled task: $_"
