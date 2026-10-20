@@ -70,7 +70,11 @@ To allow the tool to securely access your Gmail, Google Calendar, and Google Tas
    - Click **Save and Continue** through Scopes.
    - On the **Test users** page, click **Add Users** and enter your Google email address.
    - Click **Save and Continue**.
-5. Create your OAuth Client ID:
+5. Set Publishing Status to **In Production** (Crucial: prevents tokens from expiring every 7 days):
+   - Go to **APIs & Services** > **OAuth consent screen**.
+   - Under **Publishing status**, click **PUBLISH APP** and confirm.
+   - *Note:* Google will show "Needs verification". You do not need to submit for verification; leaving it unverified in production is standard for personal use and ensures your authorization lasts indefinitely instead of expiring every 7 days.
+6. Create your OAuth Client ID:
    - Go to **APIs & Services** > **Credentials**.
    - Click **Create Credentials** > **OAuth client ID**.
    - Application type: **Desktop app**.

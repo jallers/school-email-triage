@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+import sys
+import time
 from pathlib import Path
+from google.auth.exceptions import TransportError, RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -51,14 +54,49 @@ def get_credentials(
 
     # Step 2: Refresh if expired
     if creds and creds.expired and creds.refresh_token:
-        try:
-            logger.info("Cached token expired. Refreshing token...")
-            creds.refresh(Request())
-            _save_token(creds, token_path)
-            return creds
-        except Exception as e:
-            logger.warning(f"Could not refresh token: {e}. Re-authenticating...")
-            creds = None
+        logger.info("Cached token expired. Refreshing token...")
+        last_error: Exception | None = None
+        for attempt in range(1, 4):
+            try:
+                creds.refresh(Request())
+                _save_token(creds, token_path)
+                return creds
+            except TransportError as te:
+                last_error = te
+                logger.warning(
+                    f"Transient network error refreshing token (attempt {attempt}/3): {te}"
+                )
+                if attempt < 3:
+                    time.sleep(2.0 * attempt)
+            except RefreshError as re:
+                last_error = re
+                logger.warning(f"OAuth refresh token rejected by Google: {re}")
+                break
+            except Exception as e:
+                last_error = e
+                err_str = str(e).lower()
+                if any(x in err_str for x in ("connection", "reset", "timeout", "abort", "10054")):
+                    logger.warning(
+                        f"Transient network error refreshing token (attempt {attempt}/3): {e}"
+                    )
+                    if attempt < 3:
+                        time.sleep(2.0 * attempt)
+                else:
+                    logger.warning(f"Could not refresh token: {e}")
+                    break
+
+        if isinstance(last_error, (TransportError, OSError)) or (
+            last_error and any(x in str(last_error).lower() for x in ("connection", "reset", "timeout", "abort", "10054"))
+        ):
+            # Transient network failure: keep existing refresh token in token.json
+            raise AuthenticationError(
+                f"Network error while refreshing OAuth token: {last_error}. "
+                "Will retry on next scheduled run."
+            )
+
+        # Token was genuinely rejected by Google (e.g. revoked or expired)
+        logger.warning(f"OAuth token is invalid or revoked ({last_error}). Re-authentication required.")
+        creds = None
 
     # If valid, return
     if creds and creds.valid:
@@ -73,6 +111,15 @@ def get_credentials(
             "2. Enable 'Gmail API' and 'Google Calendar API'\n"
             "3. Create OAuth 2.0 Client ID (Application type: Desktop App)\n"
             f"4. Download the JSON file and save it as '{credentials_path.resolve()}'"
+        )
+
+    # In non-interactive contexts (e.g. headless scheduled tasks), do not launch a hanging browser
+    is_interactive = headless or "--auth-only" in sys.argv or (hasattr(sys.stdin, "isatty") and sys.stdin.isatty())
+    if not is_interactive:
+        raise AuthenticationError(
+            "OAuth token has expired or is missing. Please run:\n"
+            "  uv run school-email-triage --auth-only\n"
+            "in your terminal to re-authenticate interactively."
         )
 
     try:
