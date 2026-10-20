@@ -114,7 +114,16 @@ def get_credentials(
         )
 
     # In non-interactive contexts (e.g. headless scheduled tasks), do not launch a hanging browser
-    is_interactive = headless or "--auth-only" in sys.argv or (hasattr(sys.stdin, "isatty") and sys.stdin.isatty())
+    is_interactive = (
+        headless
+        or "--auth-only" in sys.argv
+        or (
+            hasattr(sys.stdin, "isatty")
+            and sys.stdin.isatty()
+            and hasattr(sys.stdout, "isatty")
+            and sys.stdout.isatty()
+        )
+    )
     if not is_interactive:
         raise AuthenticationError(
             "OAuth token has expired or is missing. Please run:\n"
